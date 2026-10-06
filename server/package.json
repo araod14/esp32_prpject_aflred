@@ -1,0 +1,19 @@
+{
+  "name": "esp32-monitor",
+  "version": "1.0.0",
+  "description": "Dashboard y backend para monitoreo remoto del ESP32 vía telemetría push",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-basic-auth": "^1.2.1"
+  }
+}

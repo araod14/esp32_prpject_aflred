@@ -1,0 +1,21 @@
+[Unit]
+Description=ESP32 Monitor (dashboard + ingesta de telemetría)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Ajusta el usuario y la ruta a donde clonaste el proyecto
+User=www-data
+WorkingDirectory=/opt/esp32-monitor/server
+EnvironmentFile=/opt/esp32-monitor/server/.env
+ExecStart=/usr/bin/node index.js
+Restart=on-failure
+RestartSec=3
+# Endurecimiento básico
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

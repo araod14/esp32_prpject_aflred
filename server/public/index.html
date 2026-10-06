@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ESP32 Monitor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>ESP32 Monitor</h1>
+    <span id="status" class="badge badge-off">— sin datos —</span>
+  </header>
+
+  <main>
+    <section class="cards">
+      <div class="card">
+        <div class="card-label">Temperatura</div>
+        <div class="card-value"><span id="temp">--</span><span class="unit">°C</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">Salida (GPIO 26)</div>
+        <div class="card-value"><span id="output">--</span></div>
+        <div class="toggle">
+          <button id="btn-on" class="btn">Encender</button>
+          <button id="btn-off" class="btn btn-secondary">Apagar</button>
+          <button id="btn-clear" class="btn btn-ghost" title="Dejar de forzar el estado">Auto</button>
+        </div>
+        <div id="cmd-hint" class="hint"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">WiFi</div>
+        <div class="card-value small"><span id="ssid">--</span></div>
+        <div class="meta"><span id="rssi">--</span> dBm · <span id="ip">--</span></div>
+      </div>
+      <div class="card">
+        <div class="card-label">Última lectura</div>
+        <div class="card-value small"><span id="lastseen">--</span></div>
+        <div class="meta">uptime: <span id="uptime">--</span></div>
+      </div>
+    </section>
+
+    <section class="chart-section">
+      <div class="chart-header">
+        <h2>Histórico de temperatura</h2>
+        <select id="range">
+          <option value="15">15 min</option>
+          <option value="60" selected>1 hora</option>
+          <option value="360">6 horas</option>
+          <option value="1440">24 horas</option>
+        </select>
+      </div>
+      <canvas id="chart" width="900" height="320"></canvas>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
