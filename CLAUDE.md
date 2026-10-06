@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 An ESP32 firmware (PlatformIO + Arduino framework) that runs a WiFi HTTP server exposing
 an API-key-protected REST API, with a WiFi manager and outbound telemetry push. All
 firmware logic lives in `src/main.cpp`. A companion Node/Express web app lives in
-`server/` (the VPS monitoring dashboard — its own README and deps). The `include/` and
-(implied) `lib/` folders are the standard empty PlatformIO scaffolding.
+`server/` (the VPS monitoring dashboard — its own README and deps). `include/` holds
+`secrets.h` (git-ignored) and its template `secrets.example.h`.
 
 ## Commands
 
@@ -72,8 +72,8 @@ Standard Arduino `setup()` / `loop()` lifecycle:
   the ESP32 pulls commands on each push (control latency ≈ one interval).
 - **TLS toggle:** `VPS_TLS_INSECURE` (default `1`) uses `client.setInsecure()` for instant
   bring-up; set `0` to validate against `VPS_ROOT_CA` (paste Let's Encrypt ISRG Root X1).
-- **Config constants** (top of `src/main.cpp`): `VPS_INGEST_URL`, `DEVICE_TOKEN`,
-  `PUSH_INTERVAL_MS` — must be filled with the real domain/token before flashing.
+- **Config:** `VPS_INGEST_URL` and `DEVICE_TOKEN` come from `include/secrets.h`;
+  `PUSH_INTERVAL_MS` is in `src/main.cpp`.
 - **VPS app (`server/`):** Node/Express + `better-sqlite3`. `POST /api/ingest`
   (`X-Device-Token` auth) stores readings and returns the desired output; the dashboard
   routes (`/`, `/api/state`, `/api/history`, `/api/command`) use HTTP Basic Auth. The
@@ -86,7 +86,9 @@ Standard Arduino `setup()` / `loop()` lifecycle:
 
 These are hardcoded constants at the top of `src/main.cpp` (not env/build flags):
 `ssid`, `password`, `API_KEY`, `AP_SSID`/`AP_PASSWORD`, and the thermistor `#define`s
-(series resistance, beta coefficient, nominal temp/resistance). Changing most of these
+(series resistance, beta coefficient, nominal temp/resistance). **Secrets** (WiFi
+ssid/password, `API_KEY`, `VPS_INGEST_URL`, `DEVICE_TOKEN`) come from `include/secrets.h`
+(git-ignored — the repo is public); copy `include/secrets.example.h` to create it. Changing most of these
 requires a recompile + upload. **Exception:** `ssid`/`password` are only first-boot
 defaults — at runtime WiFi credentials live in NVS and are changed via the captive portal
 or `POST /api/wifi/config` (see WiFi manager), no recompile needed.

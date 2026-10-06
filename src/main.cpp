@@ -7,13 +7,17 @@
 #include <WiFiClientSecure.h>
 #include <math.h>
 
+// Secretos (WiFi, API key, URL/token del VPS) en include/secrets.h, excluido de git.
+// Si no existe, copia include/secrets.example.h a include/secrets.h y rellénalo.
+#include "secrets.h"
+
 // Credenciales WiFi por defecto (se usan solo si NVS está vacío).
 // Ya no es necesario recompilar para cambiar de red: usa el portal o /api/wifi/config.
-const char* ssid = "Doldos";
-const char* password = "santiago25";
+const char* ssid = SECRET_WIFI_SSID;
+const char* password = SECRET_WIFI_PASSWORD;
 
 // API Key
-const char* API_KEY = "mi_api_key_secreta";
+const char* API_KEY = SECRET_API_KEY;
 
 // Access Point de rescate (portal cautivo)
 const char* AP_SSID = "ESP32-Setup";
@@ -26,9 +30,8 @@ const char* AP_PASSWORD = nullptr;          // nullptr = AP abierto
 // ------------------- Telemetría push al VPS -------------------
 // El ESP32 envía su estado al VPS cada PUSH_INTERVAL_MS y recibe en la respuesta
 // el estado deseado de la salida (control remoto sin necesidad de túnel).
-// >>> RELLENA estos valores con tu dominio y tu token real <<<
-const char* VPS_INGEST_URL = "https://esp32.tudominio.com/api/ingest";
-const char* DEVICE_TOKEN   = "CAMBIA_ESTE_TOKEN";  // = DEVICE_TOKEN del .env del VPS
+const char* VPS_INGEST_URL = SECRET_VPS_INGEST_URL;
+const char* DEVICE_TOKEN   = SECRET_DEVICE_TOKEN;
 #define PUSH_INTERVAL_MS 10000                      // cada 10 s
 
 // Validación TLS del certificado del VPS.
@@ -175,9 +178,9 @@ bool connectToWifi(const String &connSsid, const String &connPass) {
 void handleRoot() {
   String html = "<h1>Servidor ESP32 activo</h1>";
   html += "<p>Endpoint: GET /api/hello</p>";
-  html += "<p>Header requerido: X-API-Key: mi_api_key_secreta</p>";
+  html += "<p>Header requerido: X-API-Key: &lt;tu_api_key&gt;</p>";
   html += "<p>Estado WiFi: GET /api/wifi/status</p>";
-  html += "<p>Ejemplo: curl -H 'X-API-Key: mi_api_key_secreta' http://";
+  html += "<p>Ejemplo: curl -H 'X-API-Key: &lt;tu_api_key&gt;' http://";
   html += WiFi.localIP().toString();
   html += "/api/hello</p>";
   server.send(200, "text/html", html);

@@ -119,6 +119,6 @@ if (RETENTION_DAYS > 0) {
   }, 60 * 60 * 1000).unref();
 }
 
-app.listen(PORT, () => {
+app.listen(PORT, '127.0.0.1', () => {
   console.log(`ESP32 monitor escuchando en http://127.0.0.1:${PORT}`);
 });
