@@ -1,0 +1,14 @@
+.pio
+.vscode
+.clang_complete
+.gcc-flags.json
+
+# Config local de Claude Code (personal)
+.claude/settings.local.json
+
+# App del VPS (server/)
+server/node_modules/
+server/.env
+server/*.db
+server/*.db-wal
+server/*.db-shm
