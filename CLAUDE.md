@@ -60,6 +60,24 @@ Standard Arduino `setup()` / `loop()` lifecycle:
 - `Preferences` and `DNSServer` ship with the arduino-esp32 framework — no `lib_deps`
   changes needed.
 
+## Robustez (self-healing)
+
+Three unattended-recovery layers live in `loop()`/`setup()`, tuned by `#define`s at the
+top of `src/main.cpp`. Any long-running work added to `loop()` must keep feeding the
+watchdog (see the `pushTelemetry()` `esp_task_wdt_reset()` call before the blocking TLS POST):
+
+- **Task watchdog** (`esp_task_wdt`, `WDT_TIMEOUT_S` = 15 s): `setup()` reinitializes the
+  default TWDT with `panic=true` and subscribes the loop task; `loop()` calls
+  `esp_task_wdt_reset()` every iteration. If `loop()` ever stalls past the timeout the chip
+  reboots.
+- **STA WiFi watchdog**: every `WIFI_CHECK_INTERVAL_MS` (10 s) `loop()` checks
+  `WiFi.status()`; on a dropped link it calls `WiFi.reconnect()`, and if WiFi stays down for
+  `WIFI_DOWN_REBOOT_MS` (3 min) it reboots to re-run the connect→portal decision.
+  `WiFi.setAutoReconnect(true)` is also set at connect time.
+- **AP portal auto-exit**: if stuck in the captive portal for `AP_PORTAL_REBOOT_MS` (5 min)
+  — e.g. the home network was only momentarily down at boot — it reboots to retry the saved
+  credentials instead of waiting for a human.
+
 ## Telemetría push + app del VPS (`server/`)
 
 - **Firmware side (`pushTelemetry()`):** a `millis()` timer in `loop()` fires every
