@@ -5,6 +5,7 @@
 #include <DNSServer.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <esp_task_wdt.h>
 #include <math.h>
 
 // Secretos (WiFi, API key, URL/token del VPS) en include/secrets.h, excluido de git.
@@ -33,6 +34,12 @@ const char* AP_PASSWORD = nullptr;          // nullptr = AP abierto
 const char* VPS_INGEST_URL = SECRET_VPS_INGEST_URL;
 const char* DEVICE_TOKEN   = SECRET_DEVICE_TOKEN;
 #define PUSH_INTERVAL_MS 10000                      // cada 10 s
+
+// ------------------- Robustez: reconexión WiFi + watchdog -------------------
+#define WIFI_CHECK_INTERVAL_MS   10000   // cada cuánto se revisa el enlace WiFi en STA
+#define WIFI_DOWN_REBOOT_MS      180000  // 3 min sin WiFi en STA -> reinicia el ESP32
+#define AP_PORTAL_REBOOT_MS      300000  // 5 min atrapado en el portal AP -> reinicia y reintenta la red
+#define WDT_TIMEOUT_S            15      // watchdog por tarea: reinicia si loop() se cuelga > 15 s
 
 // Validación TLS del certificado del VPS.
 //   1 = NO valida el certificado (setInsecure). Funciona de inmediato, menos seguro.
@@ -153,7 +160,9 @@ bool connectToWifi(const String &connSsid, const String &connPass) {
   Serial.print("Conectando a WiFi: ");
   Serial.println(connSsid);
 
+  WiFi.persistent(false);        // no desgastar la flash guardando credenciales en cada begin
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);   // el driver reintenta solo si se cae el enlace
   WiFi.begin(connSsid.c_str(), connPass.c_str());
 
   int intentos = 0;
@@ -410,7 +419,10 @@ void pushTelemetry() {
   }
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-Device-Token", DEVICE_TOKEN);
+  http.setConnectTimeout(4000);  // acota el handshake/conexión (ms)
+  http.setTimeout(4000);         // acota la lectura de la respuesta (ms)
 
+  esp_task_wdt_reset();          // la conexión TLS puede tardar: alimenta el watchdog antes del POST
   int code = http.POST(payload);
   if (code == 200) {
     String resp = http.getString();
@@ -451,17 +463,64 @@ void setup() {
     Serial.println("Sin conexión: arrancando portal para configurar una red.");
     startApPortal();
   }
+
+  // Watchdog por tarea: reinicia el ESP32 si loop() deja de alimentarlo (cuelgue).
+  // Se reconfigura el TWDT por defecto (5 s) a WDT_TIMEOUT_S con panic=reinicio.
+  esp_task_wdt_deinit();
+  esp_task_wdt_init(WDT_TIMEOUT_S, true);
+  esp_task_wdt_add(NULL);  // vigila la tarea que ejecuta loop()
+  Serial.printf("Watchdog activo (%d s)\n", WDT_TIMEOUT_S);
 }
 
 void loop() {
+  esp_task_wdt_reset();  // alimenta el watchdog en cada iteración
+
   if (apMode) {
     dnsServer.processNextRequest();
+    server.handleClient();
+
+    // Si quedamos atrapados en el portal demasiado tiempo (p. ej. un fallo
+    // momentáneo de la red al arrancar), reinicia para reintentar la red guardada.
+    static unsigned long apStart = 0;
+    if (apStart == 0) apStart = millis();
+    if (millis() - apStart >= AP_PORTAL_REBOOT_MS) {
+      Serial.println("Portal AP activo demasiado tiempo: reiniciando para reintentar WiFi...");
+      delay(100);
+      ESP.restart();
+    }
+    delay(1);
+    return;
   }
+
   server.handleClient();
 
-  // Telemetría push periódica al VPS (no bloqueante)
+  // Vigilancia de WiFi en modo estación: reconexión automática y, si no se
+  // recupera en WIFI_DOWN_REBOOT_MS, reinicio para re-evaluar credenciales/portal.
+  static unsigned long lastWifiCheck = 0;
+  static unsigned long wifiDownSince = 0;
+  if (millis() - lastWifiCheck >= WIFI_CHECK_INTERVAL_MS) {
+    lastWifiCheck = millis();
+    if (WiFi.status() != WL_CONNECTED) {
+      if (wifiDownSince == 0) {
+        wifiDownSince = millis();
+        Serial.println("WiFi caído: reintentando reconexión...");
+      }
+      WiFi.reconnect();
+      if (millis() - wifiDownSince >= WIFI_DOWN_REBOOT_MS) {
+        Serial.println("WiFi sin recuperar: reiniciando...");
+        delay(100);
+        ESP.restart();
+      }
+    } else if (wifiDownSince != 0) {
+      Serial.print("WiFi reconectado. IP: ");
+      Serial.println(WiFi.localIP());
+      wifiDownSince = 0;
+    }
+  }
+
+  // Telemetría push periódica al VPS (no bloqueante entre ciclos)
   static unsigned long lastPush = 0;
-  if (!apMode && millis() - lastPush >= PUSH_INTERVAL_MS) {
+  if (millis() - lastPush >= PUSH_INTERVAL_MS) {
     lastPush = millis();
     pushTelemetry();
   }
